@@ -11,7 +11,7 @@
 
 # Introduction
 
-These examples and demos are for **TI SimpleLink CC13X2 / CC26X2 SDK 2.40.00.XX**
+These examples and demos are for **TI SimpleLink CC13X2 / CC26X2 SDK 3.10.00.XX**
 
 This repository contains proprietary radio sample applications for
 Texas Instruments' SimpleLink CC13X2 / CC26X2 SDK. These examples have not been
@@ -37,11 +37,25 @@ For examples for other SDK versions and platforms, see table below.
     </tr>
     <tr>
       <td>
-        <b>TI SimpleLink CC13X2 / CC26X2 SDK 2.40.00.XX (current)</b>
+        <b>TI SimpleLink CC13X2 / CC26X2 SDK 3.10.00.XX (current)</b>
       </td>
       <td>
         <ul>
           <li><a href="#rf-sensor-and-collector">RF Sensor and Collector</a></li>
+        </ul>
+      </td>
+    </tr>
+    <tr>
+      <th width = 50%>SDK</th>
+      <th>Examples</th>
+    </tr>
+    <tr>
+      <td>
+        <a href="https://github.com/ti-simplelink/proprietary_examples/tree/simplelink_cc13x2_sdk-2.40">TI SimpleLink CC13X2 / CC26X2 SDK 2.40.00.XX </a>
+      </td>
+      <td>
+        <ul>
+          <li>RF Sensor and Collector</li>
         </ul>
       </td>
     </tr>
@@ -67,9 +81,9 @@ releases. The numbering scheme is in the form of M.mm.pp.bb. The fields pp.bb
 are incremented as GitHub examples are released, M.mm will map a GitHub
 release to a SimpleLink SDK release.
 
-### 2.40.00.00
-New examples added.
-* RF Sensor and Collector: Synchronous time-slotted RF Sensor and Collector implementation based on the RF Driver API.
+### 3.10.00.00
+Ported examples from SDK version 2.40 to 3.10:
+* RF Sensor and Collector
 
 ## Installation
 
@@ -90,7 +104,7 @@ location.
 
 By default the SimpleLink CC13X2 / CC26X2 SDK will install to:
 
-    C:\ti\simplelink_cc13x2_26x2_sdk_2_40_00_XX
+    C:\ti\simplelink_cc13x2_26x2_sdk_3_10_00_XX
 
 If the Simplelink CC13X2 SDK must be installed to a different location, then
 see the [FAQ page](docs/faq.md) for IDE specific instructions for changing
