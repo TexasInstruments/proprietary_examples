@@ -41,23 +41,20 @@
 #include <stddef.h>
 
 /* Drivers */
+#include <ti/drivers/GPIO.h>
 #include <ti/drivers/rf/RF.h>
-#include <ti/drivers/Power.h>
-#include <ti/drivers/power/PowerCC26X2.h>
+#include <ti/drivers/utils/Random.h>
 #include <ti/display/Display.h>
 
 /* Board Header file */
-#include "Board.h"
+#include "ti_drivers_config.h"
 
 /* RF settings */
-#include "smartrf_settings/smartrf_settings.h"
+#include "ti_radio_config.h"
 
 /* RF queue and protocol */
 #include "RFQueue.h"
 #include "RadioProtocol.h"
-
-#include <ti/devices/DeviceFamily.h>
-#include DeviceFamily_constructPath(driverlib/trng.h)
 
 /***** Defines *****/
 
@@ -143,12 +140,6 @@ static volatile nodeConnectionInformation_t connectionInfo = {0};
 /* Send delay, calculated at startup and used when joining a network */
 static uint8_t sendDelay = 0;
 
-/* PIN configuration */
-PIN_Config heartbeatLedPinTable[] = {
-    Board_PIN_RLED | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-    PIN_TERMINATE
-};
-
 /***** Prototypes *****/
 
 uint8_t         listenForBeacon();
@@ -163,19 +154,10 @@ void            getReceivedPacket(uint8_t* buffer, uint16_t maxSize, uint8_t* le
  */
 void *processingThread(void *arg0) {
     Display_Handle  displayHandle;
-    PIN_Handle heartbeatLedPinHandle;
-    PIN_State heartbeatLedPinState;
     uint8_t i = 0;
 
-    /* Open the PIN handle */
-    heartbeatLedPinHandle = PIN_open(&heartbeatLedPinState, heartbeatLedPinTable);
-    if (NULL == heartbeatLedPinHandle) {
-        /* Error opening the PIN driver */
-        while(1) {};
-    }
-
     /* Open the Display handle */
-    displayHandle = Display_open(Display_Type_ANY, NULL);
+    displayHandle = Display_open(Display_Type_UART, NULL);
     if (NULL == displayHandle) {
         /* Error opening the Display driver */
         while(1) {};
@@ -187,17 +169,16 @@ void *processingThread(void *arg0) {
     Display_printf(displayHandle, i++, 0, "==============================================================================");
 
     while(1) {
-       Display_printf(displayHandle, i, 0, "|   0x%02x   |   %3d     |      %3d         |        %1d         |       %1d       |"
-                                        , SENSOR_ADDRESS
-                                        , nodeData
-                                        , connectionInfo.missingCollectorAcks
-                                        , connectionInfo.isConnected
-                                        , connectionInfo.isOrphan);
+       Display_printf(displayHandle, i, 0,
+           "|   0x%02x   |   %3d     |      %3d         |        %1d         |       %1d       |",
+           SENSOR_ADDRESS,
+           nodeData,
+           connectionInfo.missingCollectorAcks,
+           connectionInfo.isConnected,
+           connectionInfo.isOrphan);
 
        /* Heartbeat LED is always nice */
-       if (heartbeatLedPinHandle) {
-           PIN_setOutputValue(heartbeatLedPinHandle, Board_PIN_RLED, !PIN_getInputValue(Board_PIN_RLED));
-       }
+       GPIO_toggle(CONFIG_GPIO_RLED);
 
        /* Update node data */
        nodeData++;
@@ -214,6 +195,8 @@ void *radioThread(void *arg0)
 {
     RF_Params   rfParams;
     uint8_t     beaconSourceAddress;
+
+    Random_seedAutomatic();
 
     /* Request access to the radio */
     RF_Params_init(&rfParams);
@@ -281,19 +264,8 @@ void *radioThread(void *arg0)
     RF_cmdCountBranch.pNextOp = (rfc_radioOp_t*)&RF_cmdPropTx;
     RF_cmdCountBranch.pNextOpIfOk = (rfc_radioOp_t*)&RF_cmdPropCs;
 
-    /* Calculate a random send delay between 1-20 ms.
-     * This is a quick and dirty way of trying to prevent
-     * multiple sensors from sending join request at the
-     * same time. */
-    Power_setDependency(PowerCC26XX_PERIPH_TRNG);
-    TRNGEnable();
-    while (!(TRNGStatusGet() & TRNG_NUMBER_READY))
-    {
-        //wait for random number generator
-    }
-    sendDelay = ((uint8_t)TRNGNumberGet(TRNG_LOW_WORD) % 20) + 1;
-    TRNGDisable();
-    Power_releaseDependency(PowerCC26XX_PERIPH_TRNG);
+
+    Random_getBytes(&sendDelay, 1);
 
     while (1) {
         /* If not currently connected, look for a collector beacon */

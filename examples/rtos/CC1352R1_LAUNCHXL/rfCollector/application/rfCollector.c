@@ -42,15 +42,16 @@
 #include <stdlib.h>
 
 /* Drivers */
+#include <ti/drivers/GPIO.h>
 #include <ti/drivers/rf/RF.h>
 #include <ti/display/Display.h>
 #include <ti/drivers/utils/List.h>
 
 /* Board Header file */
-#include "Board.h"
+#include "ti_drivers_config.h"
 
 /* RF settings */
-#include "smartrf_settings/smartrf_settings.h"
+#include "ti_radio_config.h"
 
 /* RF queue and protocol */
 #include "RFQueue.h"
@@ -138,12 +139,6 @@ static List_List nodeList;
 /* Number of entries in the nodeStructure */
 static volatile uint8_t nodeEntries = 0;
 
-/* PIN configuration */
-PIN_Config heartbeatLedPinTable[] = {
-    Board_PIN_RLED | PIN_GPIO_OUTPUT_EN | PIN_GPIO_LOW | PIN_PUSHPULL | PIN_DRVSTR_MAX,
-    PIN_TERMINATE
-};
-
 /***** Prototypes *****/
 
 uint8_t         sendBeacon(uint32_t delayInRatTicks);
@@ -158,18 +153,9 @@ void            getReceivedPacket(uint8_t* buffer, uint16_t maxSize, uint8_t* le
  */
 void *processingThread(void *arg0) {
     Display_Handle  displayHandle;
-    PIN_Handle heartbeatLedPinHandle;
-    PIN_State heartbeatLedPinState;
-
-    /* Open the PIN handle */
-    heartbeatLedPinHandle = PIN_open(&heartbeatLedPinState, heartbeatLedPinTable);
-    if (NULL == heartbeatLedPinHandle) {
-        /* Error opening the PIN driver */
-        while(1) {};
-    }
 
     /* Open the display handle */
-    displayHandle = Display_open(Display_Type_ANY, NULL);
+    displayHandle = Display_open(Display_Type_UART, NULL);
     if (NULL == displayHandle) {
         /* Error opening the Display driver */
         while(1) {};
@@ -186,21 +172,20 @@ void *processingThread(void *arg0) {
         uint8_t i = 0;
         /* Give the node a slot if it is not an orphan */
         for (temp = (NodeElement_t *) List_head(&nodeList); temp != NULL; temp = (NodeElement_t *) List_next((List_Elem *) temp)) {
-            Display_printf(displayHandle, i+4, 0, "|   0x%02x   |   %3d     |         %3d          |       %1d       |"
-                                             , temp->nodeAddress
-                                             , temp->lastSensorData.simpleNodeData
-                                             , temp->missedPackets
-                                             , temp->isOrphan);
+            Display_printf(displayHandle, i + 4, 0,
+                "|   0x%02x   |   %3d     |         %3d          |       %1d       |",
+                temp->nodeAddress,
+                temp->lastSensorData.simpleNodeData,
+                temp->missedPackets,
+                temp->isOrphan);
             i++;
         }
 
-        /* Heartbeat LED is always nice */
-        if (heartbeatLedPinHandle) {
-            PIN_setOutputValue(heartbeatLedPinHandle, Board_PIN_RLED, !PIN_getInputValue(Board_PIN_RLED));
-        }
+        /* Heart beat LED is always nice */
+        GPIO_toggle(CONFIG_GPIO_RLED);
 
         /* Sleep for BEACON_INTERVAL seconds */
-        sleep(BEACON_INTERVAL / 1000);
+        usleep(BEACON_INTERVAL * 1000);
     }
 }
 

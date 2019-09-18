@@ -1,0 +1,103 @@
+/*
+ * Copyright (c) 2018, Texas Instruments Incorporated
+ * All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * *  Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ *
+ * *  Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
+ *
+ * *  Neither the name of Texas Instruments Incorporated nor the names of
+ *    its contributors may be used to endorse or promote products derived
+ *    from this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+ * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+ * PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
+ * OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+ * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
+ * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+// @cliArgs --board /ti/boards/CC1352R1_LAUNCHXL
+
+/*
+ *  collector.syscfg
+ */
+
+var Display = scripting.addModule("/ti/display/Display");
+var Display1 = Display.addInstance();
+var Power = scripting.addModule("/ti/drivers/Power");
+var CCFG = scripting.addModule("/ti/devices/CCFG");
+var Board = scripting.addModule("/ti/drivers/Board");
+var DriverLib = scripting.addModule("/ti/devices/DriverLib");
+var RF = scripting.addModule("/ti/drivers/RF");
+var custom = scripting.addModule("/ti/radioconfig/custom");
+var multi_stack_validate = scripting.addModule("/ti/easylink/multi_stack_validate");
+var GPIO = scripting.addModule("/ti/drivers/GPIO");
+var GPIO1 = GPIO.addInstance();
+var GPIO2 = GPIO.addInstance();
+// Use Hardware - Select the hardware to use, or 'None' to use available header pins
+Display1.$hardware = system.deviceData.board.components.XDS110UART;
+// Name - The C/C++ identifier used in applications as the index parameter passed to Display runtime APIs
+Display1.$name = "CONFIG_DISPLAY";
+// Name - The C/C++ identifier used in applications as the index parameter passed to UART runtime APIs
+Display1.uart.$name = "CONFIG_DISPLAY_UART";
+// Name
+Display1.uart.txPinInstance.$name = "CONFIG_PIN_UART_TX";
+// Name
+Display1.uart.rxPinInstance.$name = "CONFIG_PIN_UART_RX";
+// Name
+Display1.uart.uart.$name = "MyUART1";
+// Enable Bootloader - Enable ROM Bootloader, for flashing from external host
+CCFG.enableBootloader = true;
+// Enable Bootloader Backdoor - When enabling the Bootloader Backdoor, the Bootloader can be activated externally by pulling a pin, even when a valid flash image is present. Note, enabling the backdoor allows an external host to read back a flash image from the device
+CCFG.enableBootloaderBackdoor = true;
+// Bootloader Backdoor DIO - DIO (pin) to trigger Bootloader backdoor, this pin is only needed at boot
+CCFG.dioBootloaderBackdoor = 15;
+// Trigger Level of Bootloader Backdoor - Active high or low on selected DIO to open boot loader backdoor
+CCFG.levelBootloaderBackdoor = "Active low";
+// Name
+CCFG.ccfgTemplate.$name = "ti_devices_CCFGTemplate0";
+// Proprietary (779 - 930 MHz) - Select PHY settings to be included in the generated code
+custom.prop8 = ["2gfsk50kbps"];
+// Name
+custom.radioConfig2gfsk50kbps.$name = "ti_radioconfig_settings_prop0";
+// TX Power (dBm) - TX Power
+custom.radioConfig2gfsk50kbps.txPower = "12.5";
+// Name
+custom.radioConfig2gfsk50kbps.codeExportConfig.$name = "ti_radioconfig_code_export_param0";
+// Symbol Name Generation Method
+custom.radioConfig2gfsk50kbps.codeExportConfig.symGenMethod = "Custom";
+// Use Hardware - Select the hardware to use, or 'None' to use available header pins
+GPIO1.$hardware = system.deviceData.board.components.LED_RED;
+// Name - The C/C++ identifier used in applications as the index parameter passed to GPIO runtime APIs
+GPIO1.$name = "CONFIG_GPIO_RLED";
+// Name
+GPIO1.pinInstance.$name = "CONFIG_PIN_0";
+// Name - The C/C++ identifier used in applications as the index parameter passed to GPIO runtime APIs
+GPIO2.$name = "CONFIG_GPIO_GLED";
+// Use Hardware - Select the hardware to use, or 'None' to use available header pins
+GPIO2.$hardware = system.deviceData.board.components.LED_GREEN;
+// Name
+GPIO2.pinInstance.$name = "CONFIG_PIN_1";
+// Suggest solution
+Display1.uart.uart.$suggestSolution = "UART1";
+// Suggest solution
+Display1.uart.uart.txPin.$suggestSolution = "19";
+// Suggest solution
+Display1.uart.uart.rxPin.$suggestSolution = "18";
+// Suggest solution
+GPIO1.gpioPin.$suggestSolution = "11";
+// Suggest solution
+GPIO2.gpioPin.$suggestSolution = "12";

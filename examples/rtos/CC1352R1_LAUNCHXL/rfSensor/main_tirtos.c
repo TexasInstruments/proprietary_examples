@@ -42,8 +42,10 @@
 /* RTOS header files */
 #include <ti/sysbios/BIOS.h>
 
+#include <ti/drivers/GPIO.h>
+
 /* Example/Board Header files */
-#include "Board.h"
+#include "ti_drivers_config.h"
 
 extern void *radioThread(void *arg0);
 extern void *processingThread(void *arg0);
@@ -63,7 +65,9 @@ int main(void)
     int                 detachState;
 
     /* Call driver init functions */
-    Board_initGeneral();
+    Board_init();
+
+    GPIO_init();
 
     /* Set priority and stack size attributes */
     pthread_attr_init(&attrs);
