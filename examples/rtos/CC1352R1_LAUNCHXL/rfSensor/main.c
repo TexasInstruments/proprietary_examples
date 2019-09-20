@@ -32,77 +32,77 @@
  */
 
 /*
- *  ======== main_tirtos.c ========
+ *  ======== main.c ========
  */
 #include <stdint.h>
 
-/* POSIX Header files */
-#include <pthread.h>
-
 /* RTOS header files */
 #include <ti/sysbios/BIOS.h>
+#include <ti/sysbios/knl/Task.h>
 
 #include <ti/drivers/GPIO.h>
 
 /* Example/Board Header files */
 #include "ti_drivers_config.h"
 
-extern void *radioThread(void *arg0);
-extern void *processingThread(void *arg0);
+void radioThread(uintptr_t arg0, uintptr_t arg1);
+void processingThread(uintptr_t arg0, uintptr_t arg1);
 
-/* Stack size in bytes */
-#define THREADSTACKSIZE    1024
+#define RADIO_TASK_PRI     2
+#define RADIO_TASK_SIZE    1024
+static uint8_t radioTaskStack[RADIO_TASK_SIZE];
+static Task_Struct radioTaskStruct;
+static Task_Handle radioTaskHandle;
+
+#define NODE_TASK_PRI     1
+#define NODE_TASK_SIZE    1024
+static uint8_t nodeTaskStack[NODE_TASK_SIZE];
+static Task_Struct nodeTaskStruct;
+static Task_Handle nodeTaskHandle;
+
+/*
+ *  ======== rfSensor_createRadioTask ========
+ */
+Task_Handle* rfSensor_createRadioTask(void)
+{
+    Task_Params taskParams;
+    Task_Params_init(&taskParams);
+    taskParams.stack = radioTaskStack;
+    taskParams.stackSize = RADIO_TASK_SIZE;
+    taskParams.priority = RADIO_TASK_PRI;
+
+    Task_construct(&radioTaskStruct, radioThread, &taskParams, NULL);
+    radioTaskHandle = Task_handle(&radioTaskStruct);
+    return &radioTaskHandle;
+}
+
+/*
+ *  ======== rfSensor_createNodeTask ========
+ */
+Task_Handle* rfSensor_createNodeTask(void)
+{
+    Task_Params taskParams;
+    Task_Params_init(&taskParams);
+    taskParams.stack = nodeTaskStack;
+    taskParams.stackSize = NODE_TASK_SIZE;
+    taskParams.priority = NODE_TASK_PRI;
+
+    Task_construct(&nodeTaskStruct, processingThread, &taskParams, NULL);
+    nodeTaskHandle = Task_handle(&nodeTaskStruct);
+    return &nodeTaskHandle;
+}
 
 /*
  *  ======== main ========
  */
 int main(void)
 {
-    pthread_t           thread;
-    pthread_attr_t      attrs;
-    struct sched_param  priParam;
-    int                 retc;
-    int                 detachState;
-
-    /* Call driver init functions */
     Board_init();
 
     GPIO_init();
 
-    /* Set priority and stack size attributes */
-    pthread_attr_init(&attrs);
-    priParam.sched_priority = 2;
-
-    detachState = PTHREAD_CREATE_DETACHED;
-    retc = pthread_attr_setdetachstate(&attrs, detachState);
-    if (retc != 0) {
-        /* pthread_attr_setdetachstate() failed */
-        while (1);
-    }
-
-    pthread_attr_setschedparam(&attrs, &priParam);
-
-    retc |= pthread_attr_setstacksize(&attrs, THREADSTACKSIZE);
-    if (retc != 0) {
-        /* pthread_attr_setstacksize() failed */
-        while (1);
-    }
-
-    retc = pthread_create(&thread, &attrs, radioThread, NULL);
-    if (retc != 0) {
-        /* pthread_create() failed */
-        while (1);
-    }
-
-    /* Set priority and stack size attributes */
-    priParam.sched_priority = 1;
-    pthread_attr_setschedparam(&attrs, &priParam);
-
-    retc = pthread_create(&thread, &attrs, processingThread, NULL);
-    if (retc != 0) {
-        /* pthread_create() failed */
-        while (1);
-    }
+    rfSensor_createRadioTask();
+    rfSensor_createNodeTask();
 
     BIOS_start();
 

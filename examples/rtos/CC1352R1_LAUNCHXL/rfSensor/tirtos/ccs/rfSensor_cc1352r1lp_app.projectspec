@@ -48,7 +48,7 @@
         <!-- Project files -->
         <file path="PROJECT_ROOT/README.md" openOnCreation="false" excludeFromBuild="false" action="copy">
         </file>
-        <file path="PROJECT_ROOT/main_tirtos.c" openOnCreation="false" excludeFromBuild="false" action="copy">
+        <file path="PROJECT_ROOT/main.c" openOnCreation="false" excludeFromBuild="false" action="copy">
         </file>
         <file path="PROJECT_ROOT/sensor.syscfg" openOnCreation="false" excludeFromBuild="false" action="copy">
         </file>

@@ -35,10 +35,14 @@
  */
 
 /* STD includes */
-#include <stdlib.h>
-#include <unistd.h>
 #include <stdint.h>
 #include <stddef.h>
+#include <stdbool.h>
+#include <stdlib.h>
+
+/* SYS/BIOS includes */
+#include <ti/sysbios/knl/Clock.h>
+#include <ti/sysbios/knl/Task.h>
 
 /* Drivers */
 #include <ti/drivers/GPIO.h>
@@ -137,9 +141,6 @@ static volatile uint8_t nodeData = 0;
 /* Node connection information  */
 static volatile nodeConnectionInformation_t connectionInfo = {0};
 
-/* Send delay, calculated at startup and used when joining a network */
-static uint8_t sendDelay = 0;
-
 /***** Prototypes *****/
 
 uint8_t         listenForBeacon();
@@ -152,15 +153,16 @@ void            getReceivedPacket(uint8_t* buffer, uint16_t maxSize, uint8_t* le
 /*
  *  ======== processingThread ========
  */
-void *processingThread(void *arg0) {
-    Display_Handle  displayHandle;
+void processingThread(uintptr_t arg0, uintptr_t arg1) {
+    Display_Handle displayHandle = NULL;
     uint8_t i = 0;
 
     /* Open the Display handle */
     displayHandle = Display_open(Display_Type_UART, NULL);
-    if (NULL == displayHandle) {
+    if (NULL == displayHandle)
+    {
         /* Error opening the Display driver */
-        while(1) {};
+        while(1) {}
     }
 
     Display_printf(displayHandle, i++, 0, "rfSensor example - Node status");
@@ -168,30 +170,31 @@ void *processingThread(void *arg0) {
     Display_printf(displayHandle, i++, 0, "|   Node   |   Value   |   Missed ACKs    |   Is connected   |   Is orphan   |");
     Display_printf(displayHandle, i++, 0, "==============================================================================");
 
-    while(1) {
-       Display_printf(displayHandle, i, 0,
-           "|   0x%02x   |   %3d     |      %3d         |        %1d         |       %1d       |",
-           SENSOR_ADDRESS,
-           nodeData,
-           connectionInfo.missingCollectorAcks,
-           connectionInfo.isConnected,
-           connectionInfo.isOrphan);
+    while(1)
+    {
+        Display_printf(displayHandle, i, 0,
+            "|   0x%02x   |   %3d     |      %3d         |        %1d         |       %1d       |",
+            SENSOR_ADDRESS,
+            nodeData,
+            connectionInfo.missingCollectorAcks,
+            connectionInfo.isConnected,
+            connectionInfo.isOrphan);
 
-       /* Heartbeat LED is always nice */
-       GPIO_toggle(CONFIG_GPIO_RLED);
+        /* Heartbeat LED is always nice */
+        GPIO_toggle(CONFIG_GPIO_RLED);
 
-       /* Update node data */
-       nodeData++;
+        /* Update node data */
+        nodeData++;
 
-       /* Use an update interval of 2 seconds */
-       sleep(2);
+        /* Use an update interval of 2 seconds */
+        Task_sleep((2 * 1000 * 1000) / Clock_tickPeriod);
     }
 }
 
 /*
  *  ======== mainThread ========
  */
-void *radioThread(void *arg0)
+void radioThread(uintptr_t arg0, uintptr_t arg1)
 {
     RF_Params   rfParams;
     uint8_t     beaconSourceAddress;
@@ -206,9 +209,10 @@ void *radioThread(void *arg0)
     RF_postCmd(rfHandle, (RF_Op*)&RF_cmdFs, RF_PriorityNormal, NULL, 0);
 
     /* Prepare beacon RX queue */
-    if( RFQueue_defineQueue(&rxQueue, rxBuffer, sizeof(rxBuffer), NUM_DATA_ENTRIES, MAX_LENGTH + NUM_APPENDED_BYTES)) {
+    if (RFQueue_defineQueue(&rxQueue, rxBuffer, sizeof(rxBuffer), NUM_DATA_ENTRIES, MAX_LENGTH + NUM_APPENDED_BYTES))
+    {
         /* Failed to allocate space for all data entries */
-        while(1) {};
+        while(1) {}
     }
 
     /* Setup cmdPropTx values that differs from the code export  */
@@ -264,19 +268,20 @@ void *radioThread(void *arg0)
     RF_cmdCountBranch.pNextOp = (rfc_radioOp_t*)&RF_cmdPropTx;
     RF_cmdCountBranch.pNextOpIfOk = (rfc_radioOp_t*)&RF_cmdPropCs;
 
-
-    Random_getBytes(&sendDelay, 1);
-
-    while (1) {
+    while (1)
+    {
         /* If not currently connected, look for a collector beacon */
-        while(!connectionInfo.isConnected) {
+        while(!connectionInfo.isConnected)
+        {
             beaconSourceAddress = listenForBeacon();
 
-            if (beaconSourceAddress > 0) {
+            if (beaconSourceAddress > 0)
+            {
                 beaconStatus_t retVal = sendJoinRequest(beaconSourceAddress);
 
                 /* Do actions based on return value */
-                switch (retVal) {
+                switch (retVal)
+                {
                 case BEACON_CONNECTED_ESTABLISHED:
                 case BEACON_FAILED_TO_JOIN:
                 default:
@@ -287,27 +292,31 @@ void *radioThread(void *arg0)
         }
 
         /* Send sensor data */
-        if (connectionInfo.isConnected) {
-           sensorStatus_t retVal = sendSensorData();
+        if (connectionInfo.isConnected)
+        {
+            sensorStatus_t retVal = sendSensorData();
 
-           /* Do actions based on return value */
-           switch (retVal) {
-           case SENSOR_DATA_SENT_SUCCESSFULLY:
-           case SENSOR_DATA_NO_ACK:
-           default:
-               /* Do nothing */
-               break;
-           }
+            /* Do actions based on return value */
+            switch (retVal)
+            {
+            case SENSOR_DATA_SENT_SUCCESSFULLY:
+            case SENSOR_DATA_NO_ACK:
+            default:
+                /* Do nothing */
+                break;
+            }
         }
 
         /* Sleep until just before next sensor packet,
          * wake up 2 ms early to have time to prepare the packet. */
-       int64_t wakeUp = connectionInfo.nextRadioTimeSlot - RF_getCurrentTime();
-       /* If we wrapped, change sign */
-       if (wakeUp < 0) {
-           wakeUp = (0xFFFFFFFF) & (wakeUp + 0xFFFFFFFF);
-       }
-       usleep(wakeUp - 2000);
+        int64_t wakeUp = connectionInfo.nextRadioTimeSlot - RF_getCurrentTime();
+        /* If we wrapped, change sign */
+        if (wakeUp < 0)
+        {
+            wakeUp = (0xFFFFFFFF) & (wakeUp + 0xFFFFFFFF);
+        }
+
+        usleep(wakeUp - 2000);
     }
 }
 
@@ -315,7 +324,8 @@ void *radioThread(void *arg0)
  *  ======== sendBeacon ========
  *  Send data to the collector
  */
-sensorStatus_t sendSensorData() {
+sensorStatus_t sendSensorData()
+{
     RF_ScheduleCmdParams    schParams;
     SensorPacket_t          packet;
     uint8_t                 packetLength;
@@ -348,43 +358,52 @@ sensorStatus_t sendSensorData() {
     RF_cmdPropRx.condition.rule             = 1;
 
     /* Schedule the sensor packet transmission (chained TX + RX) */
-    RF_CmdHandle cmdHandle = RF_scheduleCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, &schParams, NULL,
-                                                       RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled |
-                                                       RF_EventCmdAborted  | RF_EventCmdStopped);
+    RF_CmdHandle cmdHandle = RF_scheduleCmd(rfHandle,
+        (RF_Op*)&RF_cmdPropTx,
+        &schParams,
+        NULL,
+        RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled | RF_EventCmdAborted | RF_EventCmdStopped
+    );
 
     /* Pend for command to complete */
-    RF_EventMask terminationReason = RF_pendCmd(rfHandle, cmdHandle,
-                                                RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled |
-                                                RF_EventCmdAborted  | RF_EventCmdStopped);
+    RF_EventMask terminationReason = RF_pendCmd(rfHandle,
+        cmdHandle,
+        RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled | RF_EventCmdAborted | RF_EventCmdStopped
+    );
 
     /* If RX finished successfully with a received payload */
-    if (terminationReason & (RF_EventRxEntryDone | RF_EventRxOk)) {
-
+    if (terminationReason & (RF_EventRxEntryDone | RF_EventRxOk))
+    {
         /* Read out the data from the RX queue */
         getReceivedPacket((uint8_t*) &packetACK, sizeof(packetACK), &packetLength);
 
         /* Is the received packet an beacon request? */
-        if (packetACK.header.packetType == SensorAck) {
+        if (packetACK.header.packetType == SensorAck)
+        {
             /* Sent successful and ACKed */
             returnValue = SENSOR_DATA_SENT_SUCCESSFULLY;
         }
-        else {
+        else
+        {
             /* Did not receive the expected ACK */
             returnValue = SENSOR_DATA_NO_ACK;
         }
     }
-    else {
+    else
+    {
         /* Did not receive the expected ACK */
         returnValue = SENSOR_DATA_NO_ACK;
     }
 
-    if (returnValue == SENSOR_DATA_NO_ACK) {
+    if (returnValue == SENSOR_DATA_NO_ACK)
+    {
         /* Count statistics here */
         connectionInfo.missingCollectorAcks++;
         connectionInfo.orphanCounter++;
 
         /* Have we reached the orphan threshold? */
-        if (connectionInfo.orphanCounter == SENSOR_ORPHAN_THRESHOLD) {
+        if (connectionInfo.orphanCounter == SENSOR_ORPHAN_THRESHOLD)
+        {
             connectionInfo.isOrphan    = 1;
             connectionInfo.isConnected = 0;
         }
@@ -399,12 +418,14 @@ sensorStatus_t sendSensorData() {
  *  ======== sendJoinRequest ========
  *  Send request to join a broadcasting collector.
  */
-beaconStatus_t sendJoinRequest(uint8_t collectorAddress) {
+beaconStatus_t sendJoinRequest(uint8_t collectorAddress)
+{
     RF_ScheduleCmdParams    schParams;
     RF_CmdHandle            cmdHandle;
     RF_EventMask            terminationReason;
     BeaconPacket_t          packet;
     uint8_t                 packetLength;
+    uint8_t                 sendDelay;
     beaconStatus_t          returnValue = BEACON_FAILED_TO_JOIN;
 
     /* Initialize the scheduling parameters */
@@ -438,36 +459,45 @@ beaconStatus_t sendJoinRequest(uint8_t collectorAddress) {
     RF_cmdPropRx.pNextOp                    = NULL;                               /* There is no chained command */
     RF_cmdPropRx.condition.rule             = 1;
 
+    /* Random delay between [1, 20] ms */
+    Random_getBytes(&sendDelay, 1);
+    sendDelay = sendDelay % 20 + 1;
+
     /* Send the join request as soon as possible using absolute time.
-     * To make sure the start time of the command, when processed, is
-     * not in the past, we set the start to be 1 ms into the future. */
+     * To make sure the start time of the command, when processed, is not in
+     * the past, we set the start to be some random delay ms into the future.*/
     RF_cmdNop.startTime =  RF_getCurrentTime() + RF_convertMsToRatTicks(sendDelay);
 
     /* Send join request (chained TX + RX) */
-    cmdHandle = RF_scheduleCmd(rfHandle, (RF_Op*)&RF_cmdNop, &schParams, NULL,
-                               RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled |
-                               RF_EventCmdAborted  | RF_EventCmdStopped);
+    cmdHandle = RF_scheduleCmd(rfHandle,
+        (RF_Op*)&RF_cmdNop,
+        &schParams,
+        NULL,
+        RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled | RF_EventCmdAborted | RF_EventCmdStopped
+    );
 
     /* Pend for command to complete */
-    terminationReason = RF_pendCmd(rfHandle, cmdHandle,
-                                   RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled |
-                                   RF_EventCmdAborted  | RF_EventCmdStopped);
+    terminationReason = RF_pendCmd(rfHandle,
+        cmdHandle,
+        RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled | RF_EventCmdAborted | RF_EventCmdStopped
+    );
 
     /* If RX finished successfully with a received payload */
-    if (terminationReason & (RF_EventRxEntryDone | RF_EventRxOk)) {
-
+    if (terminationReason & (RF_EventRxEntryDone | RF_EventRxOk))
+    {
         /* Read out the data from the RX queue */
         getReceivedPacket((uint8_t*) &packet, sizeof(packet), &packetLength);
 
         /* Is the received packet an beacon request? */
         if ((packet.header.packetType == Beacon) &&
-            (packet.beaconType == BeaconRsp)) {
+            (packet.beaconType == BeaconRsp))
+        {
 
             /* Send an ACK back with same information*/
-            packet.header.destAddr      = SENSOR_ADDRESS;
-            packet.header.srcAddr       = connectionInfo.collectorAddress;
-            packet.header.packetType    = Beacon;
-            packet.beaconType           = BeaconAck;
+            packet.header.destAddr   = SENSOR_ADDRESS;
+            packet.header.srcAddr    = connectionInfo.collectorAddress;
+            packet.header.packetType = Beacon;
+            packet.beaconType        = BeaconAck;
 
             /* This TX has no chained command */
             RF_cmdPropTx.pNextOp        = NULL;
@@ -479,31 +509,37 @@ beaconStatus_t sendJoinRequest(uint8_t collectorAddress) {
             RF_cmdPropTx.startTime =  RF_getCurrentTime() + RF_convertMsToRatTicks(1);
 
             /* Send responds ACK */
-            RF_CmdHandle cmdHandle = RF_scheduleCmd(rfHandle, (RF_Op*)&RF_cmdPropTx, &schParams, NULL,
-                                                    RF_EventLastCmdDone | RF_EventCmdCancelled |
-                                                    RF_EventCmdAborted  | RF_EventCmdStopped);
+            RF_CmdHandle cmdHandle = RF_scheduleCmd(rfHandle,
+                (RF_Op*)&RF_cmdPropTx,
+                &schParams,
+                NULL,
+                RF_EventLastCmdDone | RF_EventCmdCancelled | RF_EventCmdAborted | RF_EventCmdStopped
+            );
 
             /* Pend for command to complete */
-            RF_EventMask terminationReason = RF_pendCmd(rfHandle, cmdHandle,
-                                                        RF_EventLastCmdDone | RF_EventCmdCancelled |
-                                                        RF_EventCmdAborted  | RF_EventCmdStopped);
+            RF_EventMask terminationReason = RF_pendCmd(rfHandle,
+                cmdHandle,
+                RF_EventLastCmdDone | RF_EventCmdCancelled | RF_EventCmdAborted  | RF_EventCmdStopped
+            );
 
             /* Check to see if ACK was sent successfully */
-            if (terminationReason & RF_EventLastCmdDone) {
+            if (terminationReason & RF_EventLastCmdDone)
+            {
                 /* Update connection information */
-                connectionInfo.isOrphan             = 0;
-                connectionInfo.isConnected          = 1;
-                connectionInfo.orphanCounter        = 0;
-                connectionInfo.collectorAddress     = collectorAddress;
-                connectionInfo.connectionTimeSlot   = packet.connectionTimeSlot;
-                connectionInfo.connectionWindow     = packet.connectionWindow;
+                connectionInfo.isOrphan           = 0;
+                connectionInfo.isConnected        = 1;
+                connectionInfo.orphanCounter      = 0;
+                connectionInfo.collectorAddress   = collectorAddress;
+                connectionInfo.connectionTimeSlot = packet.connectionTimeSlot;
+                connectionInfo.connectionWindow   = packet.connectionWindow;
 
                 /* Calculate next sensor radio time based on previous beacon advertisement */
                 connectionInfo.nextRadioTimeSlot += RF_convertMsToRatTicks(connectionInfo.connectionTimeSlot);
 
                 returnValue = BEACON_CONNECTED_ESTABLISHED;
             }
-            else {
+            else
+            {
                 returnValue = BEACON_FAILED_TO_JOIN;
             }
         }
@@ -516,7 +552,8 @@ beaconStatus_t sendJoinRequest(uint8_t collectorAddress) {
  *  ======== listenForBeacon ========
  *  Listen for a beacon from a collector.
  */
-uint8_t listenForBeacon() {
+uint8_t listenForBeacon()
+{
     RF_ScheduleCmdParams    schParams;
     rfc_propRxOutput_t      rxStatistics;
     BeaconPacket_t          packet;
@@ -538,37 +575,43 @@ uint8_t listenForBeacon() {
     RF_cmdPropRx.pOutput                    = (uint8_t*)&rxStatistics;      /* Pointer to RX statistics */
 
     /* Schedule RX command */
-    RF_CmdHandle cmdHandle = RF_scheduleCmd(rfHandle, (RF_Op*)&RF_cmdPropRx, &schParams, NULL,
-                                            RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled |
-                                            RF_EventCmdAborted  | RF_EventCmdStopped);
+    RF_CmdHandle cmdHandle = RF_scheduleCmd(rfHandle,
+        (RF_Op*)&RF_cmdPropRx,
+        &schParams,
+        NULL,
+        RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled | RF_EventCmdAborted | RF_EventCmdStopped
+    );
 
     /* Pend for command to complete */
-    RF_EventMask terminationReason = RF_pendCmd(rfHandle, cmdHandle,
-                                                RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled |
-                                                RF_EventCmdAborted  | RF_EventCmdStopped);
+    RF_EventMask terminationReason = RF_pendCmd(rfHandle,
+        cmdHandle,
+        RF_EventRxEntryDone | RF_EventRxOk | RF_EventCmdCancelled | RF_EventCmdAborted  | RF_EventCmdStopped
+    );
 
     /* If RX finished successfully with a received payload */
-   if (terminationReason & (RF_EventRxEntryDone | RF_EventRxOk)) {
-       /* Read out the data from the RX queue */
-       getReceivedPacket((uint8_t*) &packet, sizeof(packet), &packetLength);
+    if (terminationReason & (RF_EventRxEntryDone | RF_EventRxOk))
+    {
+        /* Read out the data from the RX queue */
+        getReceivedPacket((uint8_t*) &packet, sizeof(packet), &packetLength);
 
-       if ((packet.header.packetType == Beacon) && (packet.beaconType == BeaconAdv)) {
-           /* Store the connection window */
-           connectionInfo.connectionWindow = packet.connectionWindow;
-           /* Record beacon time stamp to schedule future commands if able to join the collector */
-           connectionInfo.nextRadioTimeSlot = rxStatistics.timeStamp;
+        if ((packet.header.packetType == Beacon) && (packet.beaconType == BeaconAdv))
+        {
+            /* Store the connection window */
+            connectionInfo.connectionWindow = packet.connectionWindow;
+            /* Record beacon time stamp to schedule future commands if able to join the collector */
+            connectionInfo.nextRadioTimeSlot = rxStatistics.timeStamp;
 
-           /* Return address to the collector */
-           returnValue = packet.header.srcAddr;
-       }
+            /* Return address to the collector */
+            returnValue = packet.header.srcAddr;
+        }
    }
 
-   /* Before returning, set the pOutput buffer to NULL as it
-    * is not longer used. This is important as the statistics
-    * structure pointed to is in the local scope and located on
-    * the stack. As we exit the function, the pointer is no longer
-    * valid.*/
-   RF_cmdPropRx.pOutput = NULL;
+    /* Before returning, set the pOutput buffer to NULL as it
+     * is not longer used. This is important as the statistics
+     * structure pointed to is in the local scope and located on
+     * the stack. As we exit the function, the pointer is no longer
+     * valid.*/
+    RF_cmdPropRx.pOutput = NULL;
 
     return returnValue;
 }
@@ -577,7 +620,8 @@ uint8_t listenForBeacon() {
  *  ======== getReceivedPacket ========
  *  Reads out the first available packet from the radio RX queue
  */
-void getReceivedPacket(uint8_t* buffer, uint16_t maxSize, uint8_t* length) {
+void getReceivedPacket(uint8_t* buffer, uint16_t maxSize, uint8_t* length)
+{
     uint32_t packetLength;
     uint8_t* packetDataPointer;
 
@@ -590,12 +634,14 @@ void getReceivedPacket(uint8_t* buffer, uint16_t maxSize, uint8_t* length) {
     packetLength      = *(uint8_t*)(&currentDataEntry->data);
     packetDataPointer = (uint8_t*)(&currentDataEntry->data + 1);
 
-    if(packetLength > maxSize){
+    if (packetLength > maxSize)
+    {
         packetLength = maxSize;
     }
 
     /* If there is any data in the packet ... */
-    if (packetLength > 0) {
+    if (packetLength > 0)
+    {
         /* ... copy it into the provided buffer */
         memcpy(buffer, packetDataPointer, packetLength);
         *length = packetLength;
