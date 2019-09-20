@@ -31,11 +31,15 @@ If you have any questions please refer to the [FAQ page](docs/faq.md).
 
 For other SDK versions and platforms, refer to the table below.
 
-| SDK                            | Version  | Tag                                     |
-| ------------------------------ | -------- | --------------------------------------- |
-| SimpleLink CC13x2 / CC26x2 SDK | 3.30.00  | `simplelink_cc13x2_26x2_sdk-3.30.00.00` |
-| SimpleLink CC13x2 / CC26x2 SDK | 3.10.00  | `simplelink_cc13x2_26x2_sdk-3.10.00.00` |
-| SimpleLink CC13x2 / CC26x2 SDK | 2.40.00  | `simplelink_cc13x2_26x2_sdk-2.40.00.00` |
+| SDK                            | Version  | Tag                                                    |
+| ------------------------------ | -------- | ------------------------------------------------------ |
+| SimpleLink CC13x2 / CC26x2 SDK | 3.30.00  | [`simplelink_cc13x2_26x2_sdk-3.30.00.00`][TAG-3.30.00] |
+| SimpleLink CC13x2 / CC26x2 SDK | 3.10.00  | [`simplelink_cc13x2_26x2_sdk-3.10.00.00`][TAG-3.10.00] |
+| SimpleLink CC13x2 / CC26x2 SDK | 2.40.00  | [`simplelink_cc13x2_26x2_sdk-2.40.00.00`][TAG-2.40.00] |
+
+[TAG-3.30.00]: https://github.com/ti-simplelink/proprietary_examples/tree/simplelink_cc13x2_26x2_sdk-3.30.00.00
+[TAG-3.10.00]: https://github.com/ti-simplelink/proprietary_examples/tree/simplelink_cc13x2_26x2_sdk-3.10.00.00
+[TAG-2.40.00]: https://github.com/ti-simplelink/proprietary_examples/tree/simplelink_cc13x2_26x2_sdk-2.40.00.00
 
 
 # Navigating the Repository
