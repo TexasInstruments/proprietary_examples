@@ -1,5 +1,7 @@
 ## Table of Contents
 
+# Moved from https://github.com/ti-simplelink/proprietary_examples
+
 * [Navigating the Repository](#navigating-the-repository)
 * [Change Log](#change-log)
 * [Installation](#installation)
